@@ -354,6 +354,620 @@ class ModelExtensionModuleImportExportNik extends Model {
         }
     }
 
+    protected function getStoreIdsForProducts() {
+        $sql =  "SELECT product_id, store_id FROM `".DB_PREFIX."product_to_store` ps;";
+        $store_ids = array();
+        $result = $this->db->query( $sql );
+        foreach ($result->rows as $row) {
+            $productId = $row['product_id'];
+            $store_id = $row['store_id'];
+            if (!isset($store_ids[$productId])) {
+                $store_ids[$productId] = array();
+            }
+            if (!in_array($store_id,$store_ids[$productId])) {
+                $store_ids[$productId][] = $store_id;
+            }
+        }
+        return $store_ids;
+    }
+
+
+    protected function getLayoutsForProducts() {
+        $sql  = "SELECT pl.*, l.name FROM `".DB_PREFIX."product_to_layout` pl ";
+        $sql .= "LEFT JOIN `".DB_PREFIX."layout` l ON pl.layout_id = l.layout_id ";
+        $sql .= "ORDER BY pl.product_id, pl.store_id;";
+        $result = $this->db->query( $sql );
+        $layouts = array();
+        foreach ($result->rows as $row) {
+            $productId = $row['product_id'];
+            $store_id = $row['store_id'];
+            $name = $row['name'];
+            if (!isset($layouts[$productId])) {
+                $layouts[$productId] = array();
+            }
+            $layouts[$productId][$store_id] = $name;
+        }
+        return $layouts;
+    }
+
+
+    protected function getProductDescriptions( &$languages, $offset=null, $rows=null, $objects_ids=null ) {
+        // some older versions of OpenCart use the 'product_tag' table
+        $exist_table_product_tag = false;
+        $query = $this->db->query( "SHOW TABLES LIKE '".DB_PREFIX."product_tag'" );
+        $exist_table_product_tag = ($query->num_rows > 0);
+
+        // query the product_description table for each language
+        $product_descriptions = array();
+        foreach ($languages as $language) {
+            $language_id = $language['language_id'];
+            $language_code = $language['code'];
+            $sql  = "SELECT p.product_id, ".(($exist_table_product_tag) ? "GROUP_CONCAT(pt.tag SEPARATOR \",\") AS tag, " : "")."pd.* ";
+            $sql .= "FROM `".DB_PREFIX."product` p ";
+            $sql .= "LEFT JOIN `".DB_PREFIX."product_description` pd ON pd.product_id=p.product_id AND pd.language_id='".(int)$language_id."' ";
+            if ($exist_table_product_tag) {
+                $sql .= "LEFT JOIN `".DB_PREFIX."product_tag` pt ON pt.product_id=p.product_id AND pt.language_id='".(int)$language_id."' ";
+            }
+            if ($this->posted_categories) {
+                $sql .= "LEFT JOIN `".DB_PREFIX."product_to_category` pc ON pc.product_id=p.product_id ";
+            }
+            if (isset($objects_ids)) {
+                $sql .= "WHERE p.`product_id` IN (" . implode(',', array_map('intval', $objects_ids)) . ") ";
+            }
+            $sql .= "GROUP BY p.product_id ";
+            $sql .= "ORDER BY p.product_id ";
+            if (isset($offset) && isset($rows)) {
+                $sql .= "LIMIT $offset,$rows; ";
+            } else {
+                $sql .= "; ";
+            }
+            $query = $this->db->query( $sql );
+            $product_descriptions[$language_code] = $query->rows;
+        }
+        return $product_descriptions;
+    }
+
+
+    protected function getProducts( &$languages, $default_language_id, $product_fields, $exist_meta_title, $exist_seo_url_table, $offset=null, $rows=null, $objects_ids = null, $options = array() ) {
+        $sql  = "SELECT ";
+        $sql .= "  p.product_id,";
+        $sql .= "  GROUP_CONCAT( DISTINCT CAST(pc.category_id AS CHAR(11)) SEPARATOR \",\" ) AS categories,";
+        $sql .= "  p.sku,";
+
+        $sql .= "  p.location,";
+        $sql .= "  p.quantity,";
+        $sql .= "  p.model,";
+        $sql .= "  m.name AS manufacturer,";
+        $sql .= "  p.shipping,";
+        $sql .= "  p.price,";
+        $sql .= "  p.points,";
+        $sql .= "  p.date_available,";
+        $sql .= "  p.weight,";
+        $sql .= "  wc.unit AS weight_unit,";
+        $sql .= "  p.length,";
+        $sql .= "  p.width,";
+        $sql .= "  p.height,";
+        $sql .= "  p.status,";
+        $sql .= "  p.sort_order,";
+        if (!$exist_seo_url_table) {
+            $sql .= "  su.keyword,";
+        }
+        $sql .= "  p.stock_status_id, ";
+        $sql .= "  mc.unit AS length_unit, ";
+        $sql .= "  p.minimum ";
+        $sql .= "FROM `".DB_PREFIX."product` p ";
+        $sql .= "LEFT JOIN `".DB_PREFIX."product_to_category` pc ON p.product_id=pc.product_id ";
+        if (!$exist_seo_url_table) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."seo_url` su ON su.query=CONCAT('product_id=',p.product_id) ";
+        }
+        $sql .= "LEFT JOIN `".DB_PREFIX."manufacturer` m ON m.manufacturer_id = p.manufacturer_id ";
+        $sql .= "LEFT JOIN `".DB_PREFIX."weight_class_description` wc ON wc.weight_class_id = p.weight_class_id ";
+        $sql .= "  AND wc.language_id=$default_language_id ";
+        $sql .= "LEFT JOIN `".DB_PREFIX."length_class_description` mc ON mc.length_class_id=p.length_class_id ";
+        $sql .= "  AND mc.language_id=$default_language_id ";
+        if (isset($objects_ids)) {
+            $sql .= "WHERE p.`product_id` IN (" . implode(',', array_map('intval', $objects_ids)) . ") ";
+        }
+        $sql .= "GROUP BY p.product_id ";
+        $sql .= "ORDER BY p.product_id ";
+        if (isset($offset) && isset($rows)) {
+            $sql .= "LIMIT $offset,$rows; ";
+        } else {
+            $sql .= "; ";
+        }
+
+        $results = $this->db->query( $sql );
+
+        $product_descriptions = $this->getProductDescriptions( $languages, $offset, $rows, $objects_ids );
+        foreach ($languages as $language) {
+            $language_code = $language['code'];
+            foreach ($results->rows as $key=>$row) {
+                if (isset($product_descriptions[$language_code][$key])) {
+                    $results->rows[$key]['name'][$language_code] = $product_descriptions[$language_code][$key]['name'];
+                    $results->rows[$key]['description'][$language_code] = $product_descriptions[$language_code][$key]['description'];
+                    if ($exist_meta_title) {
+                        $results->rows[$key]['meta_title'][$language_code] = $product_descriptions[$language_code][$key]['meta_title'];
+                    }
+                    $results->rows[$key]['meta_description'][$language_code] = $product_descriptions[$language_code][$key]['meta_description'];
+                    $results->rows[$key]['meta_keyword'][$language_code] = $product_descriptions[$language_code][$key]['meta_keyword'];
+                    $results->rows[$key]['tag'][$language_code] = $product_descriptions[$language_code][$key]['tag'];
+                } else {
+                    $results->rows[$key]['name'][$language_code] = '';
+                    $results->rows[$key]['description'][$language_code] = '';
+                    if ($exist_meta_title) {
+                        $results->rows[$key]['meta_title'][$language_code] = '';
+                    }
+                    $results->rows[$key]['meta_description'][$language_code] = '';
+                    $results->rows[$key]['meta_keyword'][$language_code] = '';
+                    $results->rows[$key]['tag'][$language_code] = '';
+                }
+            }
+        }
+        return $results->rows;
+    }
+
+    protected function getProductCategories($categories_ids, $default_language_id) {
+        $results = array();
+        $categories = explode(',', $categories_ids);
+        foreach ($categories as $category_id) {
+            $query = $this->db->query("SELECT GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR '&nbsp;&nbsp;&gt;&nbsp;&nbsp;') AS name FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c1 ON (cp.category_id = c1.category_id) LEFT JOIN " . DB_PREFIX . "category c2 ON (cp.path_id = c2.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (cp.path_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) WHERE cd1.language_id = '" . (int)$this->config->get('config_language_id') . "' AND cd2.language_id = '" . (int)$this->config->get('config_language_id') . "' AND c1.`category_id` = '" . (int)$category_id . "'");
+            $results[] = $query->row['name'];
+        }
+
+        return $results;
+    }
+
+    protected function populateProductsWorksheet( &$worksheet, &$languages, $default_language_id, &$price_format, &$box_format, &$weight_format, &$text_format, $offset=null, $rows=null, &$objects_ids = null, &$options = array()) {
+        // get list of the field names, some are only available for certain OpenCart versions
+        $query = $this->db->query( "DESCRIBE `".DB_PREFIX."product`" );
+        $product_fields = array();
+        foreach ($query->rows as $row) {
+            $product_fields[] = $row['Field'];
+        }
+
+        // Opencart versions from 2.0 onwards also have product_description.meta_title
+        $sql = "SHOW COLUMNS FROM `".DB_PREFIX."product_description` LIKE 'meta_title'";
+        $query = $this->db->query( $sql );
+        $exist_meta_title = ($query->num_rows > 0) ? true : false;
+
+        // Opencart versions from 3.0 onwards use the seo_url DB table
+        $exist_seo_url_table = true;
+
+//        echo "<pre>";
+//        print_r($options);
+//        echo "</pre>";
+
+        // Set the column widths
+        $j = 0;
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('product_id'),4)+1);
+
+        if (isset($options['product_name']) && !empty($options['product_name'])) {
+            foreach ($languages as $language) {
+                $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('name') + 4, 30) + 1);
+            }
+        }
+
+        if (isset($options['product_description']) && !empty($options['product_description'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('categories'), 30) + 1);
+        }
+
+        if (isset($options['product_sku']) && !empty($options['product_sku'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('sku'), 10) + 1);
+        }
+
+        if (isset($options['product_location']) && !empty($options['product_location'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('location'), 10) + 1);
+        }
+
+        if (isset($options['product_quantity']) && !empty($options['product_quantity'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('quantity'), 4) + 1);
+        }
+
+        if (isset($options['product_model']) && !empty($options['product_model'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('model'), 12) + 1);
+        }
+
+        if (isset($options['product_manufacturer']) && !empty($options['product_manufacturer'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('manufacturer'), 15) + 1);
+        }
+
+        if (isset($options['product_shipping']) && !empty($options['product_shipping'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('shipping'), 5) + 1);
+        }
+
+        if (isset($options['product_price']) && !empty($options['product_price'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('price'), 10) + 1);
+        }
+
+        if (isset($options['product_price']) && !empty($options['product_price'])) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('points'), 5) + 1);
+        }
+
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('date_available'),10)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('weight'),6)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('weight_unit'),3)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('length'),8)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('width'),8)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('height'),8)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('length_unit'),3)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('status'),5)+1);
+        if (!$exist_seo_url_table) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('seo_keyword'),16)+1);
+        }
+        foreach ($languages as $language) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('description')+4,32)+1);
+        }
+        if ($exist_meta_title) {
+            foreach ($languages as $language) {
+                $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('meta_title')+4,20)+1);
+            }
+        }
+        foreach ($languages as $language) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('meta_description')+4,32)+1);
+        }
+        foreach ($languages as $language) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('meta_keywords')+4,32)+1);
+        }
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('stock_status_id'),3)+1);
+
+        foreach ($languages as $language) {
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('tags')+4,32)+1);
+        }
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('sort_order'),8)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('minimum'),8)+1);
+
+        // The product headings row and column styles
+        $styles = array();
+        $data = array();
+        $i = 1;
+        $j = 0;
+        $data[$j++] = 'product_id';
+        foreach ($languages as $language) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'name('.$language['code'].')';
+        }
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'categories';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'sku';
+
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'location';
+        $data[$j++] = 'quantity';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'model';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'manufacturer';
+        $data[$j++] = 'shipping';
+        $styles[$j] = &$price_format;
+        $data[$j++] = 'price';
+        $data[$j++] = 'points';
+        $data[$j++] = 'date_available';
+        $styles[$j] = &$weight_format;
+        $data[$j++] = 'weight';
+        $data[$j++] = 'weight_unit';
+        $data[$j++] = 'length';
+        $data[$j++] = 'width';
+        $data[$j++] = 'height';
+        $data[$j++] = 'length_unit';
+        $data[$j++] = 'status';
+        if (!$exist_seo_url_table) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'seo_keyword';
+        }
+        foreach ($languages as $language) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'description('.$language['code'].')';
+        }
+        if ($exist_meta_title) {
+            foreach ($languages as $language) {
+                $styles[$j] = &$text_format;
+                $data[$j++] = 'meta_title('.$language['code'].')';
+            }
+        }
+        foreach ($languages as $language) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'meta_description('.$language['code'].')';
+        }
+        foreach ($languages as $language) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'meta_keywords('.$language['code'].')';
+        }
+        $data[$j++] = 'stock_status_id';
+        foreach ($languages as $language) {
+            $styles[$j] = &$text_format;
+            $data[$j++] = 'tags('.$language['code'].')';
+        }
+        $data[$j++] = 'sort_order';
+        $data[$j++] = 'minimum';
+        $worksheet->getRowDimension($i)->setRowHeight(30);
+        $this->setCellRow( $worksheet, $i, $data, $box_format );
+
+        // The actual products data
+        $i += 1;
+        $j = 0;
+
+        $products = $this->getProducts( $languages, $default_language_id, $product_fields, $exist_meta_title, $exist_seo_url_table, $offset, $rows, $objects_ids, $options );
+
+        foreach ($products as $row) {
+            $data = array();
+            $worksheet->getRowDimension($i)->setRowHeight(26);
+            $product_id = $row['product_id'];
+            $data[$j++] = $product_id;
+            foreach ($languages as $language) {
+                $data[$j++] = html_entity_decode($row['name'][$language['code']],ENT_QUOTES,'UTF-8');
+            }
+
+            $categories = $this->getProductCategories($row['categories'], $default_language_id);
+
+            $categories_row = '';
+
+            foreach ($categories as $k => $category) {
+                if ($k < count($categories)) {
+                    $categories_row .= html_entity_decode($category) . '/';
+                } else {
+                    $categories_row .= html_entity_decode($category);
+                }
+            }
+
+            $data[$j++] = $categories_row;
+            $data[$j++] = $row['sku'];
+            $data[$j++] = $row['location'];
+            $data[$j++] = $row['quantity'];
+            $data[$j++] = $row['model'];
+            $data[$j++] = $row['manufacturer'];
+            $data[$j++] = ($row['shipping']==0) ? '0' : '1';
+            $data[$j++] = $row['price'];
+            $data[$j++] = $row['points'];
+            $data[$j++] = $row['date_available'];
+            $data[$j++] = $row['weight'];
+            $data[$j++] = $row['weight_unit'];
+            $data[$j++] = $row['length'];
+            $data[$j++] = $row['width'];
+            $data[$j++] = $row['height'];
+            $data[$j++] = $row['length_unit'];
+            $data[$j++] = ($row['status']==0) ? '0' : '1';
+            if (!$exist_seo_url_table) {
+                $data[$j++] = ($row['keyword']) ? $row['keyword'] : '';
+            }
+            foreach ($languages as $language) {
+                $data[$j++] = html_entity_decode($row['description'][$language['code']],ENT_QUOTES,'UTF-8');
+            }
+            if ($exist_meta_title) {
+                foreach ($languages as $language) {
+                    $data[$j++] = html_entity_decode($row['meta_title'][$language['code']],ENT_QUOTES,'UTF-8');
+                }
+            }
+            foreach ($languages as $language) {
+                $data[$j++] = html_entity_decode($row['meta_description'][$language['code']],ENT_QUOTES,'UTF-8');
+            }
+            foreach ($languages as $language) {
+                $data[$j++] = html_entity_decode($row['meta_keyword'][$language['code']],ENT_QUOTES,'UTF-8');
+            }
+            $data[$j++] = $row['stock_status_id'];
+            foreach ($languages as $language) {
+                $data[$j++] = html_entity_decode($row['tag'][$language['code']],ENT_QUOTES,'UTF-8');
+            }
+            $data[$j++] = $row['sort_order'];
+            $data[$j++] = $row['minimum'];
+            $this->setCellRow( $worksheet, $i, $data, $this->null_array, $styles );
+            $i += 1;
+            $j = 0;
+        }
+    }
+
+    protected function getSpecials( $language_id, $objects_ids=null ) {
+        // Newer OC versions use the 'customer_group_description' instead of 'customer_group' table for the 'name' field
+        $exist_table_customer_group_description = false;
+        $query = $this->db->query( "SHOW TABLES LIKE '".DB_PREFIX."customer_group_description'" );
+        $exist_table_customer_group_description = ($query->num_rows > 0);
+
+        // get the product specials
+        $sql  = "SELECT DISTINCT ps.*, ";
+        $sql .= ($exist_table_customer_group_description) ? "cgd.name " : "cg.name ";
+        $sql .= "FROM `".DB_PREFIX."product_special` ps ";
+        if ($exist_table_customer_group_description) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group_description` cgd ON cgd.customer_group_id=ps.customer_group_id ";
+            $sql .= "  AND cgd.language_id=$language_id ";
+        } else {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group` cg ON cg.customer_group_id=ps.customer_group_id ";
+        }
+        if ($this->posted_categories) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."product_to_category` pc ON pc.product_id=ps.product_id ";
+        }
+        if (isset($objects_ids)) {
+            $sql .= "WHERE ps.`product_id` IN (" . implode(',', array_map('intval', $objects_ids)) . ") ";
+        }
+        $sql .= "ORDER BY ps.product_id, name, ps.priority";
+        $result = $this->db->query( $sql );
+        return $result->rows;
+    }
+
+
+    protected function populateSpecialsWorksheet( &$worksheet, $language_id, &$price_format, &$box_format, &$text_format, $objects_ids=null, $options=array() ) {
+        // Set the column widths
+        $j = 0;
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('product_id')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('customer_group')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('priority')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('price'),10)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('date_start'),19)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('date_end'),19)+1);
+
+        // The heading row and column styles
+        $styles = array();
+        $data = array();
+        $i = 1;
+        $j = 0;
+        $data[$j++] = 'product_id';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'customer_group';
+        $data[$j++] = 'priority';
+        $styles[$j] = &$price_format;
+        $data[$j++] = 'price';
+        $data[$j++] = 'date_start';
+        $data[$j++] = 'date_end';
+        $worksheet->getRowDimension($i)->setRowHeight(30);
+        $this->setCellRow( $worksheet, $i, $data, $box_format );
+
+        // The actual product specials data
+        $i += 1;
+        $j = 0;
+        $specials = $this->getSpecials( $language_id, $objects_ids );
+        foreach ($specials as $row) {
+            $worksheet->getRowDimension($i)->setRowHeight(13);
+            $data = array();
+            $data[$j++] = $row['product_id'];
+            $data[$j++] = $row['name'];
+            $data[$j++] = $row['priority'];
+            $data[$j++] = $row['price'];
+            $data[$j++] = $row['date_start'];
+            $data[$j++] = $row['date_end'];
+            $this->setCellRow( $worksheet, $i, $data, $this->null_array, $styles );
+            $i += 1;
+            $j = 0;
+        }
+    }
+
+    protected function getDiscounts( $language_id, $objects_ids=null ) {
+        // Newer OC versions use the 'customer_group_description' instead of 'customer_group' table for the 'name' field
+        $exist_table_customer_group_description = false;
+        $query = $this->db->query( "SHOW TABLES LIKE '".DB_PREFIX."customer_group_description'" );
+        $exist_table_customer_group_description = ($query->num_rows > 0);
+
+        // get the product discounts
+        $sql  = "SELECT pd.*, ";
+        $sql .= ($exist_table_customer_group_description) ? "cgd.name " : "cg.name ";
+        $sql .= "FROM `".DB_PREFIX."product_discount` pd ";
+        if ($exist_table_customer_group_description) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group_description` cgd ON cgd.customer_group_id=pd.customer_group_id ";
+            $sql .= "  AND cgd.language_id=$language_id ";
+        } else {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group` cg ON cg.customer_group_id=pd.customer_group_id ";
+        }
+        if ($this->posted_categories) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."product_to_category` pc ON pc.product_id=pd.product_id ";
+        }
+        if (isset($objects_ids)) {
+            $sql .= "WHERE pd.`product_id` IN (" . implode(',', array_map('intval', $objects_ids)) . ") ";
+        }
+        $sql .= "ORDER BY pd.product_id ASC, name ASC, pd.quantity ASC";
+        $result = $this->db->query( $sql );
+        return $result->rows;
+    }
+
+
+    protected function populateDiscountsWorksheet( &$worksheet, $language_id, &$price_format, &$box_format, &$text_format, $objects_ds=null, $options=array() ) {
+        // Set the column widths
+        $j = 0;
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('product_id')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('customer_group')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('quantity')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('priority')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('price'),10)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('date_start'),19)+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('date_end'),19)+1);
+
+        // The heading row and column styles
+        $styles = array();
+        $data = array();
+        $i = 1;
+        $j = 0;
+        $data[$j++] = 'product_id';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'customer_group';
+        $data[$j++] = 'quantity';
+        $data[$j++] = 'priority';
+        $styles[$j] = &$price_format;
+        $data[$j++] = 'price';
+        $data[$j++] = 'date_start';
+        $data[$j++] = 'date_end';
+        $worksheet->getRowDimension($i)->setRowHeight(30);
+        $this->setCellRow( $worksheet, $i, $data, $box_format );
+
+        // The actual product discounts data
+        $i += 1;
+        $j = 0;
+        $discounts = $this->getDiscounts( $language_id, $objects_ds );
+        foreach ($discounts as $row) {
+            $worksheet->getRowDimension($i)->setRowHeight(13);
+            $data = array();
+            $data[$j++] = $row['product_id'];
+            $data[$j++] = $row['name'];
+            $data[$j++] = $row['quantity'];
+            $data[$j++] = $row['priority'];
+            $data[$j++] = $row['price'];
+            $data[$j++] = $row['date_start'];
+            $data[$j++] = $row['date_end'];
+            $this->setCellRow( $worksheet, $i, $data, $this->null_array, $styles );
+            $i += 1;
+            $j = 0;
+        }
+    }
+
+    protected function getRewards( $language_id, $object_ids=null ) {
+        // Newer OC versions use the 'customer_group_description' instead of 'customer_group' table for the 'name' field
+        $exist_table_customer_group_description = false;
+        $query = $this->db->query( "SHOW TABLES LIKE '".DB_PREFIX."customer_group_description'" );
+        $exist_table_customer_group_description = ($query->num_rows > 0);
+
+        // get the product rewards
+        $sql  = "SELECT pr.*, ";
+        $sql .= ($exist_table_customer_group_description) ? "cgd.name " : "cg.name ";
+        $sql .= "FROM `".DB_PREFIX."product_reward` pr ";
+        if ($exist_table_customer_group_description) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group_description` cgd ON cgd.customer_group_id=pr.customer_group_id ";
+            $sql .= "  AND cgd.language_id=$language_id ";
+        } else {
+            $sql .= "LEFT JOIN `".DB_PREFIX."customer_group` cg ON cg.customer_group_id=pr.customer_group_id ";
+        }
+        if ($this->posted_categories) {
+            $sql .= "LEFT JOIN `".DB_PREFIX."product_to_category` pc ON pc.product_id=pr.product_id ";
+        }
+        if (isset($objects_ids)) {
+            $sql .= "WHERE pr.`product_id` IN (" . implode(',', array_map('intval', $objects_ids)) . ") ";
+        }
+        $sql .= "ORDER BY pr.product_id, name";
+        $result = $this->db->query( $sql );
+        return $result->rows;
+    }
+
+
+    protected function populateRewardsWorksheet( &$worksheet, $language_id, &$box_format, &$text_format, $object_ids=null, $options=array() ) {
+        // Set the column widths
+        $j = 0;
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('product_id')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('customer_group')+1);
+        $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('points')+1);
+
+        // The heading row and column styles
+        $styles = array();
+        $data = array();
+        $i = 1;
+        $j = 0;
+        $data[$j++] = 'product_id';
+        $styles[$j] = &$text_format;
+        $data[$j++] = 'customer_group';
+        $data[$j++] = 'points';
+        $worksheet->getRowDimension($i)->setRowHeight(30);
+        $this->setCellRow( $worksheet, $i, $data, $box_format );
+
+        // The actual product rewards data
+        $i += 1;
+        $j = 0;
+        $rewards = $this->getRewards( $language_id, $object_ids );
+        foreach ($rewards as $row) {
+            $worksheet->getRowDimension($i)->setRowHeight(13);
+            $data = array();
+            $data[$j++] = $row['product_id'];
+            $data[$j++] = $row['name'];
+            $data[$j++] = $row['points'];
+            $this->setCellRow( $worksheet, $i, $data, $this->null_array, $styles );
+            $i += 1;
+            $j = 0;
+        }
+    }
+
     protected function setCellRow( $worksheet, $row/*1-based*/, $data, &$default_style=null, &$styles=null ) {
         if (!empty($default_style)) {
             $worksheet->getStyle( "$row:$row" )->applyFromArray( $default_style, false );
@@ -486,38 +1100,38 @@ class ModelExtensionModuleImportExportNik extends Model {
                     $worksheet->freezePaneByColumnAndRow( 1, 2 );
                     break;
 
-//                case 'p':
-//                    // creating the Products worksheet
-//                    $workbook->setActiveSheetIndex($worksheet_index++);
-//                    $worksheet = $workbook->getActiveSheet();
-//                    $worksheet->setTitle( 'Products' );
-//                    $this->populateProductsWorksheet( $worksheet, $languages, $default_language_id, $price_format, $box_format, $weight_format, $text_format, $offset, $rows, $min_id, $max_id );
-//                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
-//
-//                    // creating the Specials worksheet
-//                    $workbook->createSheet();
-//                    $workbook->setActiveSheetIndex($worksheet_index++);
-//                    $worksheet = $workbook->getActiveSheet();
-//                    $worksheet->setTitle( 'Specials' );
-//                    $this->populateSpecialsWorksheet( $worksheet, $default_language_id, $price_format, $box_format, $text_format, $min_id, $max_id );
-//                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
-//
-//                    // creating the Discounts worksheet
-//                    $workbook->createSheet();
-//                    $workbook->setActiveSheetIndex($worksheet_index++);
-//                    $worksheet = $workbook->getActiveSheet();
-//                    $worksheet->setTitle( 'Discounts' );
-//                    $this->populateDiscountsWorksheet( $worksheet, $default_language_id, $price_format, $box_format, $text_format, $min_id, $max_id );
-//                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
-//
-//                    // creating the Rewards worksheet
-//                    $workbook->createSheet();
-//                    $workbook->setActiveSheetIndex($worksheet_index++);
-//                    $worksheet = $workbook->getActiveSheet();
-//                    $worksheet->setTitle( 'Rewards' );
-//                    $this->populateRewardsWorksheet( $worksheet, $default_language_id, $box_format, $text_format, $min_id, $max_id );
-//                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
-//                    break;
+                case 'p':
+                    // creating the Products worksheet
+                    $workbook->setActiveSheetIndex($worksheet_index++);
+                    $worksheet = $workbook->getActiveSheet();
+                    $worksheet->setTitle( 'Products' );
+                    $this->populateProductsWorksheet( $worksheet, $languages, $default_language_id, $price_format, $box_format, $weight_format, $text_format, $offset, $rows, $objects_ids, $options );
+                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
+
+                    // creating the Specials worksheet
+                    $workbook->createSheet();
+                    $workbook->setActiveSheetIndex($worksheet_index++);
+                    $worksheet = $workbook->getActiveSheet();
+                    $worksheet->setTitle( 'Specials' );
+                    $this->populateSpecialsWorksheet( $worksheet, $default_language_id, $price_format, $box_format, $text_format, $objects_ids, $options );
+                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
+
+                    // creating the Discounts worksheet
+                    $workbook->createSheet();
+                    $workbook->setActiveSheetIndex($worksheet_index++);
+                    $worksheet = $workbook->getActiveSheet();
+                    $worksheet->setTitle( 'Discounts' );
+                    $this->populateDiscountsWorksheet( $worksheet, $default_language_id, $price_format, $box_format, $text_format, $objects_ids, $options );
+                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
+
+                    // creating the Rewards worksheet
+                    $workbook->createSheet();
+                    $workbook->setActiveSheetIndex($worksheet_index++);
+                    $worksheet = $workbook->getActiveSheet();
+                    $worksheet->setTitle( 'Rewards' );
+                    $this->populateRewardsWorksheet( $worksheet, $default_language_id, $box_format, $text_format, $objects_ids, $options );
+                    $worksheet->freezePaneByColumnAndRow( 1, 2 );
+                    break;
 
                 default:
                     break;
@@ -586,8 +1200,6 @@ class ModelExtensionModuleImportExportNik extends Model {
             $objWriter = PHPExcel_IOFactory::createWriter($workbook, 'Excel2007');
             $objWriter->setPreCalculateFormulas(false);
             $objWriter->save('php://output');
-
-            print_r(1);
 
             // Clear the spreadsheet caches
             $this->clearSpreadsheetCache();

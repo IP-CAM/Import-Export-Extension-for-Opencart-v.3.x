@@ -39,6 +39,16 @@ $_['entry_product_quantity']         = 'Количество';
 $_['entry_product_manufacturer']     = 'Производитель';
 $_['entry_product_categories']       = 'Категории товара';
 $_['entry_product_discount']         = 'Скидки';
+$_['entry_product_minimum']          = 'Минимальное количество';
+$_['entry_product_shipping']         = 'Необходима доставка';
+$_['entry_product_date_available']   = 'Дата поступления';
+$_['entry_product_length']           = 'Размеры (Д x Ш x В)';
+$_['entry_product_length_class']     = 'Единица измерения длины';
+$_['entry_product_weight']           = 'Вес';
+$_['entry_product_weight_class']     = 'Единица измерения веса';
+$_['entry_product_status']           = 'Статус';
+$_['entry_product_sort_order']       = 'Порядок сортировки';
+$_['entry_product_special']          = 'Акции';
 
 // Buttons
 $_['button_select_all']   = 'Выбрать все';
