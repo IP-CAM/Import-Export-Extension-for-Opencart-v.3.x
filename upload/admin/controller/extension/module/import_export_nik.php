@@ -25,6 +25,12 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $data['error_empty_categories'] = '';
         }
 
+        if (isset($this->error['empty_upload_file'])) {
+            $data['error_empty_upload_file'] = $this->error['empty_upload_file'];
+        } else {
+            $data['error_empty_upload_file'] = '';
+        }
+
         if (isset($this->error['empty_products'])) {
             $data['error_empty_products'] = $this->error['empty_products'];
         } else {
@@ -234,7 +240,7 @@ class ControllerExtensionModuleImportExportNik extends Controller {
 
             $this->model_extension_module_import_export_nik->download('c', null, null, $categories, $post);
 
-            $this->session->data['success'] = $this->language->get('text_export_success');
+            $this->session->data['success'] = $this->language->get('text_categories_export_success');
 
             $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
         }
@@ -244,7 +250,38 @@ class ControllerExtensionModuleImportExportNik extends Controller {
     }
 
     public function importCategories() {
+        $this->load->language('extension/module/import_export_nik');
+        $this->load->model('extension/module/import_export_nik');
 
+        if (isset($this->request->get['type'])) {
+            $type = $this->request->get['type'];
+        } else {
+            $type = 'categories';
+        }
+
+        $url = '';
+
+        if (isset($this->request->get['type'])) {
+            $url .= '&type=' . $type;
+        }
+
+        if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate() && $this->validateImportCategories()) {
+            $file = $this->request->files['upload']['tmp_name'];
+            $incremental = false;
+
+
+            if ( $this->model_extension_module_import_export_nik->upload($file,$incremental) == true ) {
+                $this->session->data['success'] = $this->language->get('text_categories_import_success');
+
+                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
+            }
+            else {
+                $this->error['warning'] = $this->language->get('error_upload');
+            }
+        }
+
+
+        $this->index();
     }
 
     public function exportProducts() {
@@ -270,7 +307,7 @@ class ControllerExtensionModuleImportExportNik extends Controller {
 
             $this->model_extension_module_import_export_nik->download('p', null, null, $products, $post);
 
-            $this->session->data['success'] = $this->language->get('text_export_success');
+            $this->session->data['success'] = $this->language->get('text_products_export_success');
 
             $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
         }
@@ -290,6 +327,14 @@ class ControllerExtensionModuleImportExportNik extends Controller {
     protected function validateExportCategories() {
         if (!isset($this->request->post['category'])) {
             $this->error['empty_categories'] = $this->language->get('error_empty_categories');
+        }
+
+        return !$this->error;
+    }
+
+    protected function validateImportCategories() {
+	    if ((!isset( $this->request->files['upload'] )) || (!is_uploaded_file($this->request->files['upload']['tmp_name']))) {
+            $this->error['empty_upload_file'] = $this->language->get('error_empty_upload_file');
         }
 
         return !$this->error;

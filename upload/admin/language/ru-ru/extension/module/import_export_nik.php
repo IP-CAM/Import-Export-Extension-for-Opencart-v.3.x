@@ -9,7 +9,9 @@ $_['text_edit']        = 'Настройки модуля';
 $_['text_categories']  = 'Категории';
 $_['text_products']    = 'Продукты';
 $_['text_all']         = 'Все';
-$_['text_export_success'] = 'Категории успешно экспортированы!';
+$_['text_categories_export_success'] = 'Категории успешно экспортированы!';
+$_['text_categories_import_success'] = 'Категории успешно импортированы!';
+$_['text_products_export_success'] = 'Продукты успешно экспортированы!';
 
 // Tabs
 $_['tab_export']       = 'Экспорт';
@@ -49,6 +51,9 @@ $_['entry_product_weight_class']     = 'Единица измерения вес
 $_['entry_product_status']           = 'Статус';
 $_['entry_product_sort_order']       = 'Порядок сортировки';
 $_['entry_product_special']          = 'Акции';
+$_['entry_product_reward']           = 'Бонусы';
+$_['entry_product_stock_status']     = 'Статус на складе';
+$_['entry_category_import']          = 'Иморт категорий';
 
 // Buttons
 $_['button_select_all']   = 'Выбрать все';
@@ -60,4 +65,6 @@ $_['button_import']       = 'Импортировать';
 $_['error_permission'] = 'У Вас нет прав для изменения модуля Аккаунт!';
 $_['error_empty_categories'] = 'Выберите категорию, которую хотите выгрузить!';
 $_['error_empty_products'] = 'Выберите товары, которые хотите выгрузить!';
+$_['error_upload'] = 'Ошибка загрузки файла!';
+$_['error_empty_upload_file'] = 'Выберите файл, который хотите загрузить!';
 

@@ -51,6 +51,11 @@
         <button type="button" class="close" data-dismiss="alert">&times;</button>
       </div>
     {% endif %}
+    {% if error_empty_upload_file %}
+      <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_empty_upload_file }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+      </div>
+    {% endif %}
     {% if success %}
       <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
         <button type="button" class="close" data-dismiss="alert">&times;</button>
@@ -125,8 +130,16 @@
               </form>
             </div>
             <div class="tab-pane" id="tab-import">
-              <form action="{{ actionImportCategories }}" method="post" enctype="multipart/form-data" id="form-module" class="form-horizontal">
-
+              <form action="{{ actionImportCategories }}" method="post" enctype="multipart/form-data" id="form-import-categories" class="form-horizontal">
+                <div class="form-group">
+                  <label class="col-sm-2 control-label" for="input-category-import">{{ entry_category_import }}</label>
+                  <div class="col-sm-10">
+                    <input name="upload" type="file" class="form-control" id="input-category-import" accept=".xlsx, .xls">
+                  </div>
+                </div>
+                <div class="pull-right">
+                  <button type="submit" form="form-import-categories" class="btn btn-primary">{{ button_import }}</button>
+                </div>
               </form>
             </div>
           </div>
@@ -312,6 +325,16 @@
                   <label class="col-sm-2 control-label" for="input-product-special">{{ entry_product_special }}</label>
                   <div class="col-sm-2">
                     <input name="product_special" type="checkbox" class="form-control checkbox-margin-top" id="input-product-special">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="col-sm-2 control-label" for="input-product-reward">{{ entry_product_reward }}</label>
+                  <div class="col-sm-2">
+                    <input name="product_reward" type="checkbox" class="form-control checkbox-margin-top" id="input-product-reward">
+                  </div>
+                  <label class="col-sm-2 control-label" for="input-product-stock-status">{{ entry_product_stock_status }}</label>
+                  <div class="col-sm-2">
+                    <input name="product_stock_status" type="checkbox" class="form-control checkbox-margin-top" id="input-product-stock-status">
                   </div>
                 </div>
                 <hr>
