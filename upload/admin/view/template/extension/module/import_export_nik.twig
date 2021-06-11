@@ -19,6 +19,45 @@
   .checkbox-margin-top {
     margin-top: 12px !important;
   }
+
+  .lds-ring {
+    display: none;
+    position: relative;
+    top: 150px;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    z-index: 999;
+  }
+  .lds-ring div {
+    box-sizing: border-box;
+    display: block;
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    margin: 8px;
+    border: 8px solid #333;
+    border-radius: 50%;
+    animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    border-color: #333 transparent transparent transparent;
+  }
+  .lds-ring div:nth-child(1) {
+    animation-delay: -0.45s;
+  }
+  .lds-ring div:nth-child(2) {
+    animation-delay: -0.3s;
+  }
+  .lds-ring div:nth-child(3) {
+    animation-delay: -0.15s;
+  }
+  @keyframes lds-ring {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
 </style>
 {{ column_left }}
 <div id="content">
@@ -67,6 +106,12 @@
     </div>
     <div class="panel panel-default">
       <div class="panel-body">
+        <div class="lds-ring">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
         {% if type == 'categories' %}
           <ul class="nav nav-tabs">
             <li class="active"><a href="#tab-export" data-toggle="tab">{{ tab_export }}</a></li>
@@ -138,11 +183,66 @@
                   </div>
                 </div>
                 <div class="pull-right">
-                  <button type="submit" form="form-import-categories" class="btn btn-primary">{{ button_import }}</button>
+                  <button type="button" id="import-categories-btn" form="form-import-categories" class="btn btn-primary">{{ button_import }}</button>
                 </div>
               </form>
             </div>
           </div>
+          <script>
+              let importFile;
+
+              // заполняем переменную данными, при изменении значения поля file
+              $('input[type=file]').on('change', function(){
+                  importFile = this.files;
+              });
+
+              $('#import-categories-btn').on('click', function () {
+                  if ($("#input-category-import")[0].files[0]) {
+                      var dataFiles = new FormData();
+
+                      // заполняем объект данных файлами в подходящем для отправки формате
+                      dataFiles.append( "file", $("#input-category-import")[0].files[0] );
+
+                      // AJAX запрос
+                      $.ajax({
+                          url         : 'index.php?route=extension/module/import_export_nik/importCategories&type=products&user_token={{ user_token }}',
+                          type        : 'POST', // важно!
+                          data        : dataFiles,
+                          cache       : false,
+                          dataType    : 'json',
+                          // отключаем обработку передаваемых данных, пусть передаются как есть
+                          processData : false,
+                          // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+                          contentType : false,
+                          beforeSend: function(){
+                              // Действия, которые будут выполнены перед выполнением этого ajax-запроса
+                              $('.lds-ring').css('display', 'inline');
+                          },
+                          complete: function(){
+                              // Действия, которые будут выполнены после завершения ajax-запроса
+                              $('.lds-ring').css('display', 'none');
+                          },
+                          // функция успешного ответа сервера
+                          success     : function( respond, status, jqXHR ) {
+
+                              // ОК - файлы загружены
+                              if( typeof respond.error === 'undefined' ) {
+                                  $('#dropped-files #upload-button .delete').click()
+                              }
+                              // ошибка
+                              else {
+                                  console.log('ОШИБКА: ' + respond.data );
+                              }
+                          },
+                          // функция ошибки ответа сервера
+                          error: function( jqXHR, status, errorThrown ) {
+                              console.log( 'ОШИБКА AJAX запроса: ' + status, jqXHR );
+                          }
+
+                      });
+                  }
+              })
+          </script>
           <script>
               $('#export-category').delegate('.fa-minus-circle', 'click', function() {
                   $(this).parent().remove();
@@ -348,11 +448,74 @@
               </form>
             </div>
             <div class="tab-pane" id="tab-import">
-              <form action="{{ actionImportProducts }}" method="post" enctype="multipart/form-data" id="form-module" class="form-horizontal">
-
+              <form action="{{ actionImportProducts }}" method="post" enctype="multipart/form-data" id="form-import-products" class="form-horizontal">
+                <div class="form-group">
+                  <label class="col-sm-2 control-label" for="input-product-import">{{ entry_product_import }}</label>
+                  <div class="col-sm-10">
+                    <input name="upload" type="file" class="form-control" id="input-product-import" accept=".xlsx, .xls">
+                  </div>
+                </div>
+                <div class="pull-right">
+                  <button type="button" id="import-products-btn" form="form-import-products" class="btn btn-primary">{{ button_import }}</button>
+                </div>
               </form>
             </div>
           </div>
+          <script>
+              let importFile;
+
+              // заполняем переменную данными, при изменении значения поля file
+              $('input[type=file]').on('change', function(){
+                  importFile = this.files;
+              });
+
+              $('#import-products-btn').on('click', function () {
+                  if ($("#input-product-import")[0].files[0]) {
+                      var dataFiles = new FormData();
+
+                      // заполняем объект данных файлами в подходящем для отправки формате
+                      dataFiles.append( "file", $("#input-product-import")[0].files[0] );
+
+                      // AJAX запрос
+                      $.ajax({
+                          url         : 'index.php?route=extension/module/import_export_nik/importProducts&type=products&user_token={{ user_token }}',
+                          type        : 'POST', // важно!
+                          data        : dataFiles,
+                          cache       : false,
+                          dataType    : 'json',
+                          // отключаем обработку передаваемых данных, пусть передаются как есть
+                          processData : false,
+                          // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+                          contentType : false,
+                          beforeSend: function(){
+                              // Действия, которые будут выполнены перед выполнением этого ajax-запроса
+                              $('.lds-ring').css('display', 'inline');
+                          },
+                          complete: function(){
+                              // Действия, которые будут выполнены после завершения ajax-запроса
+                              $('.lds-ring').css('display', 'none');
+                          },
+                          // функция успешного ответа сервера
+                          success     : function( respond, status, jqXHR ) {
+
+                              // ОК - файлы загружены
+                              if( typeof respond.error === 'undefined' ) {
+                                  $('#dropped-files #upload-button .delete').click()
+                              }
+                              // ошибка
+                              else {
+                                  console.log('ОШИБКА: ' + respond.data );
+                              }
+                          },
+                          // функция ошибки ответа сервера
+                          error: function( jqXHR, status, errorThrown ) {
+                              console.log( 'ОШИБКА AJAX запроса: ' + status, jqXHR );
+                          }
+
+                      });
+                  }
+              })
+          </script>
           <script>
             $('input[name=\'product_name\']').autocomplete({
                 source: function(request, response) {

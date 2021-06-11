@@ -265,23 +265,21 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $url .= '&type=' . $type;
         }
 
-        if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate() && $this->validateImportCategories()) {
-            $file = $this->request->files['upload']['tmp_name'];
+        if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) { // && $this->validateImportCategories()
+            $file = $this->request->files['file']['tmp_name'];
             $incremental = false;
 
-
             if ( $this->model_extension_module_import_export_nik->upload($file,$incremental) == true ) {
-                $this->session->data['success'] = $this->language->get('text_categories_import_success');
-
-                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
+//                $this->session->data['success'] = $this->language->get('text_categories_import_success');
+//
+//                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
             }
             else {
                 $this->error['warning'] = $this->language->get('error_upload');
             }
         }
 
-
-        $this->index();
+//        $this->index();
     }
 
     public function exportProducts() {
@@ -314,6 +312,40 @@ class ControllerExtensionModuleImportExportNik extends Controller {
 
 
         $this->index();
+    }
+
+    public function importProducts() {
+        $this->load->language('extension/module/import_export_nik');
+        $this->load->model('extension/module/import_export_nik');
+
+        if (isset($this->request->get['type'])) {
+            $type = $this->request->get['type'];
+        } else {
+            $type = 'categories';
+        }
+
+        $url = '';
+
+        if (isset($this->request->get['type'])) {
+            $url .= '&type=' . $type;
+        }
+
+        if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate() ) { // && $this->validateImportCategories()
+            $file = $this->request->files['file']['tmp_name'];
+            $incremental = false;
+
+            if ( $this->model_extension_module_import_export_nik->upload($file,$incremental) == true ) {
+//                $this->session->data['success'] = $this->language->get('text_products_import_success');
+
+//                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
+            }
+            else {
+                $this->error['warning'] = $this->language->get('error_upload');
+            }
+        }
+
+
+//        $this->index();
     }
 
 	protected function validate() {
