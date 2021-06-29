@@ -221,6 +221,7 @@
                           complete: function(){
                               // Действия, которые будут выполнены после завершения ajax-запроса
                               $('.lds-ring').css('display', 'none');
+                              location = '{{ reload_link }}&user_token={{ user_token }}&type=categories'
                           },
                           // функция успешного ответа сервера
                           success     : function( respond, status, jqXHR ) {
@@ -494,6 +495,7 @@
                           complete: function(){
                               // Действия, которые будут выполнены после завершения ajax-запроса
                               $('.lds-ring').css('display', 'none');
+                              location = '{{ reload_link }}&user_token={{ user_token }}&type=products'
                           },
                           // функция успешного ответа сервера
                           success     : function( respond, status, jqXHR ) {

@@ -2,20 +2,6 @@
 class ModelExtensionModuleImportExportNik extends Model {
     protected $null_array = array();
 
-//	public function install() {
-//		$this->db->query("
-//		CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "fraud_ip` (
-//		  `ip` varchar(40) NOT NULL,
-//		  `date_added` datetime NOT NULL,
-//		  PRIMARY KEY (`ip`)
-//		) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
-//		");
-//	}
-
-//	public function uninstall() {
-//		$this->db->query("DROP TABLE IF EXISTS `" . DB_PREFIX . "ip`");
-//	}
-
     public function getCategory($category_id, $data) {
         $sql = "SELECT cp.category_id AS category_id";
 
@@ -156,6 +142,12 @@ class ModelExtensionModuleImportExportNik extends Model {
         }
         $results = $this->db->query( $sql );
 
+//        echo "<pre>";
+        foreach ($results->rows as $key => $row) {
+//            print_r($row);
+            $results->rows[$key]['parent'] = $this->getCategoryParent($row['parent_id']);
+        }
+//        echo "</pre>";
         $category_descriptions = $this->getCategoryDescriptions( $languages, $offset, $rows, $objects_ids );
         foreach ($languages as $language) {
             $language_code = $language['code'];
@@ -180,6 +172,12 @@ class ModelExtensionModuleImportExportNik extends Model {
             }
         }
         return $results->rows;
+    }
+
+    protected function getCategoryParent($category_id) {
+        $query = $this->db->query("SELECT cd.name AS `name` FROM " . DB_PREFIX. "category_description cd WHERE category_id = '" . $category_id . "'");
+
+        return isset($query->row['name']) ? $query->row['name'] : '';
     }
 
     protected function getCategoryDescriptions( &$languages, $offset=null, $rows=null, $objects_ids=null ) {
@@ -222,7 +220,7 @@ class ModelExtensionModuleImportExportNik extends Model {
         $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('category_id')+1);
 
         if (isset($options['category_parent']) && !empty($options['category_parent'])) {
-            $worksheet->getColumnDimensionByColumn($j++)->setWidth(strlen('parent_id') + 1);
+            $worksheet->getColumnDimensionByColumn($j++)->setWidth(max(strlen('parent') + 1, 30) + 1);
         }
 
         if (isset($options['category_name']) && !empty($options['category_name'])) {
@@ -263,7 +261,7 @@ class ModelExtensionModuleImportExportNik extends Model {
         $data[$j++] = 'category_id';
         
         if (isset($options['category_parent']) && !empty($options['category_parent'])) {
-            $data[$j++] = 'parent_id';
+            $data[$j++] = 'parent';
         }
         
         if (isset($options['category_name']) && !empty($options['category_name'])) {
@@ -315,12 +313,12 @@ class ModelExtensionModuleImportExportNik extends Model {
             $data[$j++] = $row['category_id'];
 
             if (isset($options['category_parent']) && !empty($options['category_parent'])) {
-                $data[$j++] = $row['parent_id'];
+                $data[$j++] = $row['parent'];
             }
 
             if (isset($options['category_name']) && !empty($options['category_name'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['name'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['name'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
@@ -332,19 +330,19 @@ class ModelExtensionModuleImportExportNik extends Model {
 
             if (isset($options['category_meta_title']) && !empty($options['category_meta_title'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_title'][$language['code']],ENT_QUOTES,'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_title'][$language['code']]),ENT_QUOTES,'UTF-8');
                 }
             }
 
             if (isset($options['category_meta_description']) && !empty($options['category_meta_description'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_description'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_description'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
             if (isset($options['category_meta_keywords']) && !empty($options['category_meta_keywords'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_keyword'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_keyword'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
@@ -793,6 +791,7 @@ class ModelExtensionModuleImportExportNik extends Model {
         }
 
         if (isset($options['product_date_available']) && !empty($options['product_date_available'])) {
+            $styles[$j] = &$text_format;
             $data[$j++] = 'date_available';
         }
 
@@ -854,7 +853,7 @@ class ModelExtensionModuleImportExportNik extends Model {
 
             if (isset($options['product_name']) && !empty($options['product_name'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['name'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['name'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
@@ -866,25 +865,25 @@ class ModelExtensionModuleImportExportNik extends Model {
 
             if (isset($options['product_meta_title']) && !empty($options['product_meta_title'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_title'][$language['code']],ENT_QUOTES,'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_title'][$language['code']]),ENT_QUOTES,'UTF-8');
                 }
             }
 
             if (isset($options['product_meta_description']) && !empty($options['product_meta_description'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_description'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_description'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
             if (isset($options['product_meta_keywords']) && !empty($options['product_meta_keywords'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['meta_keyword'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['meta_keyword'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
             if (isset($options['product_tags']) && !empty($options['product_tags'])) {
                 foreach ($languages as $language) {
-                    $data[$j++] = html_entity_decode($row['tag'][$language['code']], ENT_QUOTES, 'UTF-8');
+                    $data[$j++] = html_entity_decode(trim($row['tag'][$language['code']]), ENT_QUOTES, 'UTF-8');
                 }
             }
 
@@ -1029,7 +1028,9 @@ class ModelExtensionModuleImportExportNik extends Model {
         $data[$j++] = 'priority';
         $styles[$j] = &$price_format;
         $data[$j++] = 'price';
+        $styles[$j] = &$text_format;
         $data[$j++] = 'date_start';
+        $styles[$j] = &$text_format;
         $data[$j++] = 'date_end';
         $worksheet->getRowDimension($i)->setRowHeight(30);
         $this->setCellRow( $worksheet, $i, $data, $box_format );
@@ -1104,7 +1105,9 @@ class ModelExtensionModuleImportExportNik extends Model {
         $data[$j++] = 'priority';
         $styles[$j] = &$price_format;
         $data[$j++] = 'price';
+        $styles[$j] = &$text_format;
         $data[$j++] = 'date_start';
+        $styles[$j] = &$text_format;
         $data[$j++] = 'date_end';
         $worksheet->getRowDimension($i)->setRowHeight(30);
         $this->setCellRow( $worksheet, $i, $data, $box_format );
@@ -1588,7 +1591,7 @@ class ModelExtensionModuleImportExportNik extends Model {
         $query = $this->db->query( $sql );
 
         $expected_heading = array
-            ( "category_id", "parent_id", "name", "description", "meta_title", "meta_description", "meta_keywords" );
+            ( "category_id", "parent", "name", "description", "meta_title", "meta_description", "meta_keywords" );
 
         $expected_multilingual = array( "name", "description", "meta_title", "meta_description", "meta_keywords" );
 
@@ -1886,6 +1889,8 @@ class ModelExtensionModuleImportExportNik extends Model {
     }
 
     public function upload( $filename, $incremental=false ) {
+
+
         // we use our own error handler
         global $registry;
         $registry = $this->registry;
@@ -1925,7 +1930,7 @@ class ModelExtensionModuleImportExportNik extends Model {
             $this->clearCache();
             $available_product_ids = array();
             $available_category_ids = array();
-            $available_customer_ids = array();
+
             $this->uploadCategories( $reader, $incremental, $available_category_ids );
 
             $this->uploadProducts( $reader, $incremental, $available_product_ids );
@@ -1995,8 +2000,8 @@ class ModelExtensionModuleImportExportNik extends Model {
             if ($category_id=="") {
                 continue;
             }
-            if($first_row[$j-1] == "parent_id") {
-                $parent_id = $this->getCell($data, $i, $j++, '');
+            if($first_row[$j-1] == "parent") {
+                $parent_name = $this->getCell($data, $i, $j++, '');
             }
 
             $names = array();
@@ -2051,7 +2056,7 @@ class ModelExtensionModuleImportExportNik extends Model {
 
             $category = array();
             $category['category_id'] = $category_id;
-            $category['parent_id'] = isset($parent_id) ? $parent_id : '';
+            $category['parent_name'] = isset($parent_name) ? trim($parent_name) : '';
             $category['names'] = $names;
             $category['descriptions'] = $descriptions;
             $category['meta_titles'] = $meta_titles;
@@ -2080,12 +2085,15 @@ class ModelExtensionModuleImportExportNik extends Model {
         $meta_descriptions = $category['meta_descriptions'];
         $meta_keywords = $category['meta_keywords'];
 
-        $query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category WHERE category_id = '" . $category_id . "' LIMIT 1");
+        $query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category WHERE category_id = '" . (int)$category_id . "' LIMIT 1");
 
         // Category added yet, need update
         if (isset($query->row['category_id'])) {
-            if (strlen(trim((string)$category['parent_id']))) {
-                $this->db->query("UPDATE " . DB_PREFIX . "category SET parent_id = '" . (int)$category['parent_id'] . "', date_modified = NOW() WHERE category_id = '" . (int)$category_id . "'");
+            if (strlen(trim((string)$category['parent_name']))) {
+                $parent_id_query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category_description WHERE `name` = '" . $this->db->escape($category['parent_name']) . "'");
+                $parent_id = $parent_id_query->row['category_id'];
+
+                $this->db->query("UPDATE " . DB_PREFIX . "category SET parent_id = '" . (int)$parent_id . "', date_modified = NOW() WHERE category_id = '" . (int)$category_id . "'");
             }
 
             foreach ($languages as $language) {
@@ -2244,7 +2252,7 @@ class ModelExtensionModuleImportExportNik extends Model {
 
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "date_available") {
                 $date_available = $this->getCell($data, $i, $j++);
-                $date_available = ((is_string($date_available)) && (strlen($date_available) > 0)) ? $date_available : "NOW()";
+                $date_available = date("Y-m-d", strtotime($date_available));
             }
 
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "length") {
@@ -2359,7 +2367,6 @@ class ModelExtensionModuleImportExportNik extends Model {
                 $product['manufacturer_name'] = $manufacturer_name;
             }
 
-
             if (isset($categories)) {
                 $categories = trim($categories);
                 $product['categories'] = ($categories == "") ? array() : explode("/", $categories);
@@ -2455,7 +2462,7 @@ class ModelExtensionModuleImportExportNik extends Model {
                 $sql .= ", stock_status_id = '" . (int)$stock_status_id . "'";
             }
             if (strlen(trim($date_available))) {
-                $sql .= ", date_available = " . $this->db->escape($date_available) . "";
+                $sql .= ", date_available = '" . $this->db->escape($date_available) . "'";
             }
             if (isset($manufacturer_id)) {
                 $sql .= ", manufacturer_id = '" . (int)$manufacturer_id . "'";
@@ -2567,7 +2574,7 @@ class ModelExtensionModuleImportExportNik extends Model {
                 $sql .= ", stock_status_id = '" . (int)$stock_status_id . "'";
             }
             if (strlen(trim($date_available))) {
-                $sql .= ", date_available = " . $this->db->escape($date_available) . "";
+                $sql .= ", date_available = '" . $this->db->escape($date_available) . "'";
             }
             if (isset($manufacturer_id)) {
                 $sql .= ", manufacturer_id = '" . (int)$manufacturer_id . "'";
@@ -2707,9 +2714,11 @@ class ModelExtensionModuleImportExportNik extends Model {
             }
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "date_start") {
                 $date_start = $this->getCell($data, $i, $j++, '0000-00-00');
+                $date_start = date("Y-m-d", strtotime($date_start));
             }
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "date_end") {
                 $date_end = $this->getCell($data, $i, $j++, '0000-00-00');
+                $date_end = date("Y-m-d", strtotime($date_end));
             }
 
             $special = array();
@@ -2825,9 +2834,11 @@ class ModelExtensionModuleImportExportNik extends Model {
             }
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "date_start") {
                 $date_start = $this->getCell($data, $i, $j++, '0000-00-00');
+                $date_start = date("Y-m-d", strtotime($date_start));
             }
             if(isset($first_row[$j - 1]) && $first_row[$j-1] == "date_end") {
                 $date_end = $this->getCell($data, $i, $j++, '0000-00-00');
+                $date_end = date("Y-m-d", strtotime($date_end));
             }
 
             $discount = array();

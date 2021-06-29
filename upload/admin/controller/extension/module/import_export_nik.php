@@ -86,6 +86,8 @@ class ControllerExtensionModuleImportExportNik extends Controller {
         $data['link_categories'] = $this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . '&type=categories', true);
         $data['link_products'] = $this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . '&type=products', true);
 
+        $data['reload_link'] = $this->url->link('extension/module/import_export_nik', true);
+
         $data['type'] = $type;
 
         $this->load->model('catalog/category');
@@ -270,7 +272,7 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $incremental = false;
 
             if ( $this->model_extension_module_import_export_nik->upload($file,$incremental) == true ) {
-//                $this->session->data['success'] = $this->language->get('text_categories_import_success');
+                $this->session->data['success'] = $this->language->get('text_categories_import_success');
 //
 //                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
             }
@@ -335,7 +337,7 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $incremental = false;
 
             if ( $this->model_extension_module_import_export_nik->upload($file,$incremental) == true ) {
-//                $this->session->data['success'] = $this->language->get('text_products_import_success');
+                $this->session->data['success'] = $this->language->get('text_products_import_success');
 
 //                $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
             }
