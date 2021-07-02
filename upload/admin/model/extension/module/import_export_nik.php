@@ -2,6 +2,16 @@
 class ModelExtensionModuleImportExportNik extends Model {
     protected $null_array = array();
 
+    public function getProductIdByModel($model) {
+        $query = $this->db->query("SELECT product_id FROM " . DB_PREFIX ."product WHERE `model` = '" . $this->db->escape($model) . "'");
+
+        return $query->row['product_id'];
+    }
+
+    public function addAddictionProductImage($product_id, $image_path) {
+        $this->db->query("INSERT INTO " . DB_PREFIX . "product_image SET product_id = '" . (int)$product_id . "', image = '" . $this->db->escape($image_path) . "', sort_order = '" . (int)0 . "'");
+    }
+
     public function getCategory($category_id, $data) {
         $sql = "SELECT cp.category_id AS category_id";
 
@@ -1889,8 +1899,6 @@ class ModelExtensionModuleImportExportNik extends Model {
     }
 
     public function upload( $filename, $incremental=false ) {
-
-
         // we use our own error handler
         global $registry;
         $registry = $this->registry;
@@ -1937,7 +1945,7 @@ class ModelExtensionModuleImportExportNik extends Model {
 
 //            $this->uploadCategoryFilters( $reader, $incremental, $available_category_ids );
 //            $this->uploadCategorySEOKeywords( $reader, $incremental, $available_category_ids );
-//            $this->uploadAdditionalImages( $reader, $incremental, $available_product_ids );
+            $this->uploadAdditionalImages( $reader, $incremental, $available_product_ids );
             $this->uploadSpecials( $reader, $incremental, $available_product_ids );
             $this->uploadDiscounts( $reader, $incremental, $available_product_ids );
             $this->uploadRewards( $reader, $incremental, $available_product_ids );

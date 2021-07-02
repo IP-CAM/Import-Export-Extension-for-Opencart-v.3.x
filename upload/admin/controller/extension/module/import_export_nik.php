@@ -78,6 +78,7 @@ class ControllerExtensionModuleImportExportNik extends Controller {
         $data['actionImportCategories'] = $this->url->link('extension/module/import_export_nik/importCategories', 'user_token=' . $this->session->data['user_token'] . $url, true);
         $data['actionExportProducts'] = $this->url->link('extension/module/import_export_nik/exportProducts', 'user_token=' . $this->session->data['user_token'] . $url, true);
         $data['actionImportProducts'] = $this->url->link('extension/module/import_export_nik/importProducts', 'user_token=' . $this->session->data['user_token'] . $url, true);
+        $data['actionImportProductImages'] = $this->url->link('extension/module/import_export_nik/importProductImages', 'user_token=' . $this->session->data['user_token'] . $url, true);
 
 		$data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true);
 
@@ -247,7 +248,6 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
         }
 
-
         $this->index();
     }
 
@@ -312,7 +312,6 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
         }
 
-
         $this->index();
     }
 
@@ -346,8 +345,79 @@ class ControllerExtensionModuleImportExportNik extends Controller {
             }
         }
 
+//        $this->index();
+    }
+
+    public function importProductImages() {
+        $this->load->language('extension/module/import_export_nik');
+        $this->load->model('extension/module/import_export_nik');
+
+        if (isset($this->request->get['type'])) {
+            $type = $this->request->get['type'];
+        } else {
+            $type = 'categories';
+        }
+
+        $url = '';
+
+        if (isset($this->request->get['type'])) {
+            $url .= '&type=' . $type;
+        }
+
+        if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate() ) { // && $this->validateImportCategories()
+            $file = $this->request->files['file'];
+
+            $upload_dir_path = DIR_IMAGE . "archives/";
+            $addiction_image_path = "catalog/demo/";
+
+            if( ! is_dir( $upload_dir_path ) ) mkdir( $upload_dir_path, 0777 );
+
+            if ( move_uploaded_file($file['tmp_name'], $upload_dir_path . $file['name']) ) {
+                // даем имя папке, в которую будем извлекать файлы
+                $dir = DIR_IMAGE . 'catalog/demo';
+
+                // распаковываем архив
+                $images = $this->archive_unpack( $upload_dir_path . $file['name'], $dir );
+
+                if($images) {
+                    foreach ($images as $image) {
+                        $product_unique_key = explode("_", $image);
+                        $product_model = $product_unique_key[0];
+
+                        $product_id = $this->model_extension_module_import_export_nik->getProductIdByModel($product_model);
+
+                        $this->model_extension_module_import_export_nik->addAddictionProductImage($product_id, $addiction_image_path . $image);
+                    }
+
+//                    $this->response->redirect($this->url->link('extension/module/import_export_nik', 'user_token=' . $this->session->data['user_token'] . $url, true));
+                }
+                $this->session->data['success'] = $this->language->get('text_products_images_import_success');
+            } else {
+                $this->error['warning'] = "Невозможно загрузить {$file['name']} ";
+            }
+        }
 
 //        $this->index();
+    }
+
+    protected function archive_unpack( $source, $dest ) {
+        $zip = new ZipArchive;
+        $is  = $zip->open( $source );
+
+        $img_names = array();
+
+        if( $is ) {
+            for ($i = 0; $i < $zip->count(); $i++) {
+                $img_names[] = $zip->getNameIndex($i);
+            }
+
+            $zip->extractTo( $dest );
+            $zip->close();
+        } else {
+            return false;
+        }
+
+        return $img_names;
     }
 
 	protected function validate() {

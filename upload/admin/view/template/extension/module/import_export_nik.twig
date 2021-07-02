@@ -291,6 +291,7 @@
           <ul class="nav nav-tabs">
             <li class="active"><a href="#tab-export" data-toggle="tab">{{ tab_export }}</a></li>
             <li><a href="#tab-import" data-toggle="tab">{{ tab_import }}</a></li>
+            <li><a href="#tab-import-product-images" data-toggle="tab">{{ tab_import_images }}</a></li>
           </ul>
           <div class="tab-content">
             <div class="tab-pane active" id="tab-export">
@@ -461,6 +462,19 @@
                 </div>
               </form>
             </div>
+            <div class="tab-pane" id="tab-import-product-images">
+              <form action="{{ actionImportProductImages }}" method="post" enctype="multipart/form-data" id="form-import-product-images" class="form-horizontal">
+                <div class="form-group">
+                  <label class="col-sm-2 control-label" for="input-import-product-images">{{ entry_images_import }}</label>
+                  <div class="col-sm-10">
+                    <input name="upload" type="file" class="form-control" id="input-import-product-images" accept=".zip">
+                  </div>
+                </div>
+                <div class="pull-right">
+                  <button type="button" id="import-product-images-btn" form="form-import-product-images" class="btn btn-primary">{{ button_import }}</button>
+                </div>
+              </form>
+            </div>
           </div>
           <script>
               let importFile;
@@ -514,6 +528,44 @@
                               console.log( 'ОШИБКА AJAX запроса: ' + status, jqXHR );
                           }
 
+                      });
+                  }
+              })
+
+              $('#import-product-images-btn').on('click', function () {
+                  if ($("#input-import-product-images")[0].files[0]) {
+                      var dataFiles = new FormData();
+
+                      // заполняем объект данных файлами в подходящем для отправки формате
+                      dataFiles.append( "file", $("#input-import-product-images")[0].files[0] );
+
+                      // AJAX запрос
+                      $.ajax({
+                          url         : 'index.php?route=extension/module/import_export_nik/importProductImages&type=products&user_token={{ user_token }}',
+                          type        : 'POST', // важно!
+                          data        : dataFiles,
+                          cache       : false,
+                          dataType    : 'json',
+                          // отключаем обработку передаваемых данных, пусть передаются как есть
+                          processData : false,
+                          // отключаем установку заголовка типа запроса. Так jQuery скажет серверу что это строковой запрос
+                          contentType : false,
+                          beforeSend: function(){
+                              // Действия, которые будут выполнены перед выполнением этого ajax-запроса
+                              $('.lds-ring').css('display', 'inline');
+                          },
+                          complete: function(){
+                              // Действия, которые будут выполнены после завершения ajax-запроса
+                              $('.lds-ring').css('display', 'none');
+                              location = '{{ reload_link }}&user_token={{ user_token }}&type=products'
+                          },
+                          // функция успешного ответа сервера
+                          success     : function( respond, status, jqXHR ) {
+
+                          },
+                          // функция ошибки ответа сервера
+                          error: function( jqXHR, status, errorThrown ) {
+                          }
                       });
                   }
               })

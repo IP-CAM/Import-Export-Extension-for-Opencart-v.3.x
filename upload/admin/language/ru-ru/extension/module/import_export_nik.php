@@ -13,10 +13,12 @@ $_['text_categories_export_success'] = 'Категории успешно экс
 $_['text_categories_import_success'] = 'Категории успешно импортированы!';
 $_['text_products_export_success'] = 'Продукты успешно экспортированы!';
 $_['text_products_import_success'] = 'Продукты успешно импортированы!';
+$_['text_products_images_import_success'] = 'Изображения товаров успешно импортированы!';
 
 // Tabs
 $_['tab_export']       = 'Экспорт';
 $_['tab_import']       = 'Импорт';
+$_['tab_import_images']= 'Импорт картинок';
 
 // Entry
 $_['entry_category_list']             = 'Список категорий';
@@ -56,6 +58,7 @@ $_['entry_product_reward']           = 'Бонусы';
 $_['entry_product_stock_status']     = 'Статус на складе';
 $_['entry_category_import']          = 'Импорт категорий';
 $_['entry_product_import']           = 'Импорт продуктов';
+$_['entry_images_import']            = 'Импорт изображений';
 
 // Buttons
 $_['button_select_all']   = 'Выбрать все';
