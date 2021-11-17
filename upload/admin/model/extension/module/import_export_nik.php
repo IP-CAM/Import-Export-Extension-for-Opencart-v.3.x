@@ -1945,7 +1945,7 @@ class ModelExtensionModuleImportExportNik extends Model {
 
 //            $this->uploadCategoryFilters( $reader, $incremental, $available_category_ids );
 //            $this->uploadCategorySEOKeywords( $reader, $incremental, $available_category_ids );
-            $this->uploadAdditionalImages( $reader, $incremental, $available_product_ids );
+//            $this->uploadAdditionalImages( $reader, $incremental, $available_product_ids );
             $this->uploadSpecials( $reader, $incremental, $available_product_ids );
             $this->uploadDiscounts( $reader, $incremental, $available_product_ids );
             $this->uploadRewards( $reader, $incremental, $available_product_ids );
@@ -2095,11 +2095,15 @@ class ModelExtensionModuleImportExportNik extends Model {
 
         $query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category WHERE category_id = '" . (int)$category_id . "' LIMIT 1");
 
+        if (strlen(trim((string)$category['parent_name']))) {
+            $parent_id_query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category_description WHERE `name` = '" . $this->db->escape($category['parent_name']) . "'");
+            $parent_id = $parent_id_query->row['category_id'];
+        }
+
         // Category added yet, need update
         if (isset($query->row['category_id'])) {
-            if (strlen(trim((string)$category['parent_name']))) {
-                $parent_id_query = $this->db->query("SELECT category_id FROM " . DB_PREFIX . "category_description WHERE `name` = '" . $this->db->escape($category['parent_name']) . "'");
-                $parent_id = $parent_id_query->row['category_id'];
+            if (isset($parent_id)) {
+                $parent_id = !empty($parent_id) ? $parent_id : 0;
 
                 $this->db->query("UPDATE " . DB_PREFIX . "category SET parent_id = '" . (int)$parent_id . "', date_modified = NOW() WHERE category_id = '" . (int)$category_id . "'");
             }
@@ -2116,7 +2120,7 @@ class ModelExtensionModuleImportExportNik extends Model {
                 $this->db->query("UPDATE " . DB_PREFIX . "category_description SET `name` = '" . $this->db->escape($name) . "', description = '" . $this->db->escape($description) . "', meta_title = '" . $this->db->escape($meta_title) . "', meta_description = '" . $this->db->escape($meta_description) . "', meta_keyword = '" . $this->db->escape($meta_keyword) . "' WHERE category_id = '" . (int)$category_id . "' AND language_id = '" . (int)$language_id . "'");
             }
         } else { // add new category
-            $parent_id = !empty($category['parent_id']) ? $category['parent_id'] : 0;
+            $parent_id = !empty($parent_id) ? $parent_id : 0;
 
             $this->db->query("INSERT INTO " . DB_PREFIX . "category SET category_id = '" . (int)$category_id . "', parent_id = '" . (int)$parent_id . "', `top` = '" . (int)0 . "', `column` = '" . (int)0 . "', status = '" . (int)1 . "', date_modified = NOW(), date_added = NOW()");
 
